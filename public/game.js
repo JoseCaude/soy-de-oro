@@ -114,6 +114,11 @@ stick.addEventListener('pointermove', e => { if (e.pointerId === stickId) stickS
 const stickEnd = e => { if (e.pointerId !== stickId) return; stickId = null; stickSet(0, 0); knob.style.left = '90px'; knob.style.top = 'calc(100% - 90px)'; };
 stick.addEventListener('pointerup', stickEnd); stick.addEventListener('pointercancel', stickEnd);
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+// iOS ignora user-scalable=no: bloquear zoom por doble toque y pellizco
+const inJoin = t => t && t.closest && t.closest('#join');
+document.addEventListener('touchend', e => { if (!inJoin(e.target)) e.preventDefault(); }, { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
 
 function pollPad() {
   padMask = 0;
