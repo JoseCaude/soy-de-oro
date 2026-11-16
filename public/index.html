@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>¡Soy de Oro!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet">
+<style>
+  :root { --gold: #ffcf3a; --ink: #1a1208; }
+  html, body { margin: 0; height: 100%; background: #0d0b08; overflow: hidden; font-family: "Trebuchet MS", system-ui, sans-serif; color: #fff; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; image-rendering: auto; background: #222; box-shadow: 0 0 40px #000; }
+  #join { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(40,25,0,.55), rgba(0,0,0,.85)); z-index: 5; padding: 16px; box-sizing: border-box; }
+  #join.hidden { display: none; }
+  .card { max-width: 560px; width: 100%; text-align: center; }
+  h1 { font-family: Bangers, Impact, sans-serif; font-size: clamp(48px, 11vw, 96px); margin: 0; letter-spacing: 3px; color: var(--gold);
+       text-shadow: 0 0 24px rgba(255,200,40,.7), 4px 4px 0 #7a4b00, 8px 8px 0 #000; transform: rotate(-3deg); }
+  h2 { font-family: Bangers, Impact, sans-serif; font-weight: normal; letter-spacing: 2px; margin: 6px 0 22px; color: #fff; font-size: clamp(18px, 4vw, 26px); }
+  input { font: inherit; font-size: 20px; padding: 10px 14px; border-radius: 10px; border: 3px solid var(--gold); background: #1b1408; color: #fff; width: min(320px, 90%); text-align: center; outline: none; }
+  button { font-family: Bangers, Impact, sans-serif; font-size: 30px; letter-spacing: 2px; margin-top: 14px; padding: 8px 28px; border-radius: 12px; border: 0; cursor: pointer;
+           background: linear-gradient(#ffe07a, #f0a800); color: var(--ink); box-shadow: 0 5px 0 #8a5a00; }
+  button:active { transform: translateY(3px); box-shadow: 0 2px 0 #8a5a00; }
+  .story { margin: -12px 0 16px; font-size: 13px; font-style: italic; color: #e8d9b0; }
+  .ctrl { margin-top: 22px; display: grid; grid-template-columns: auto auto; gap: 4px 18px; justify-content: center; text-align: left; font-size: 14px; color: #f3e6c4; }
+  .ctrl b { color: var(--gold); }
+  .hint { margin-top: 18px; font-size: 13px; color: #c9b98f; }
+  .hint code { color: #fff; background: #2a1f0c; padding: 2px 6px; border-radius: 6px; }
+  #status { position: fixed; top: 8px; right: 10px; font-size: 12px; color: #ffb4a8; z-index: 6; }
+  #touch { position: fixed; inset: 0; pointer-events: none; z-index: 4; display: none; }
+  #touch.on { display: block; }
+  .tb { position: absolute; pointer-events: auto; width: 62px; height: 62px; border-radius: 50%; background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.45);
+        display: flex; align-items: center; justify-content: center; font-family: Bangers, Impact, sans-serif; font-size: 22px; color: #fff; }
+  .tb.act { background: rgba(255,207,58,.45); }
+  #stick { position: absolute; left: 0; bottom: 0; width: 45%; height: 70%; pointer-events: auto; }
+  #knob { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; left: 90px; top: calc(100% - 90px);
+          background: radial-gradient(circle, rgba(255,255,255,.45) 0 26px, rgba(255,255,255,.12) 27px); border: 2px solid rgba(255,255,255,.4); }
+  #rotate { position: fixed; inset: 0; z-index: 9; background: #0d0b08; display: none; align-items: center; justify-content: center; text-align: center;
+            font-family: Bangers, Impact, sans-serif; font-size: 30px; color: #ffcf3a; letter-spacing: 1px; }
+  #rotate small { color: #fff; font-size: 18px; }
+  .touchhint { display: none; }
+  @media (pointer: coarse) {
+    .ctrl { display: none; } .touchhint { display: block; }
+    @media (orientation: portrait) { #rotate { display: flex; } }
+  }
+  @media (max-height: 500px) {
+    h1 { font-size: 48px; } h2 { margin: 2px 0 10px; font-size: 17px; }
+    input { font-size: 16px; padding: 6px 10px; } button { font-size: 24px; margin-top: 8px; padding: 4px 22px; }
+    .hint { margin-top: 8px; } .story { margin: -6px 0 8px; font-size: 11px; } .ctrl { margin-top: 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game" width="960" height="540"></canvas></div>
+<div id="status"></div>
+
+<div id="join">
+  <div class="card">
+    <h1>¡SOY DE ORO!</h1>
+    <h2>El hijo de Zeus · Tranvía de Zaragoza, Línea 1</h2>
+    <p class="story">Basado en hechos reales que el protagonista no recuerda.<br>Dicen los testigos que iba gritando que era de oro y el hijo de Zeus.</p>
+    <input id="name" maxlength="14" placeholder="Tu nombre de dios" autocomplete="off">
+    <br><button id="go">¡Subir al tranvía!</button>
+    <div class="ctrl">
+      <span><b>Flechas / WASD</b></span><span>Moverse (si puedes andar recto)</span>
+      <span><b>J</b> o <b>Z</b></span><span>Golpe (3 seguidos = botellazo)</span>
+      <span><b>K</b>, <b>X</b> o <b>Espacio</b></span><span>Saltar (golpe en el aire = patada)</span>
+      <span><b>L</b> o <b>C</b></span><span>Botella dorada: ¡te vuelves de ORO!</span>
+      <span><b>Botellón</b></span><span>Camina hacia él para montarlo · saltar para bajar</span>
+      <span><b>M</b></span><span>Silenciar</span>
+    </div>
+    <p class="hint touchhint">Joystick a la izquierda para moverte · PUÑO, SALTO y ORO a la derecha · camina hacia el botellón para montarlo</p>
+    <p class="hint">Cooperativo: tus colegas se suben abriendo <code id="url">esta misma dirección</code> y aparecen a tu lado.</p>
+  </div>
+</div>
+
+<div id="touch">
+  <div id="stick"><div id="knob"></div></div>
+  <div class="tb" data-b="64" style="right:150px;bottom:24px">ORO</div>
+  <div class="tb" data-b="32" style="right:80px;bottom:96px">SALTO</div>
+  <div class="tb" data-b="16" style="right:12px;bottom:20px;width:78px;height:78px">PUÑO</div>
+</div>
+<div id="rotate"><div>📱↻<br>Gira el móvil en horizontal<br><small>el tranvía no cabe de pie</small></div></div>
+<script src="game.js"></script>
+</body>
+</html>
