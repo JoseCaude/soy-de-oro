@@ -53,13 +53,14 @@ const ET = {
   abuela:     { hp: 45,  spd: 70,  dmg: 12, range: 50, windup: 0.5,  cd: 2.2, h: 0.82, w: 1.0,  score: 120, behav: 'charge', chargeSpd: 330, lines: ['¡Sinvergüenza!', '¡A tu edad!', '¡Que llego tarde al mercado!', '¡Ese asiento es mío!'] },
   revisor:    { hp: 60,  spd: 95,  dmg: 9,  range: 46, windup: 0.35, cd: 1.3, h: 1.0,  w: 1.0,  score: 100, lines: ['¡Billete, por favor!', '¡Eso es multa!', '¡Validar es obligatorio!'] },
   turista:    { hp: 40,  spd: 105, dmg: 8,  range: 92, windup: 0.4,  cd: 1.5, h: 1.08, w: 0.95, score: 90,  lines: ['Excuse me! Selfie!', 'Where is El Pilar?', '#Zaragoza #tram', '¡Qué auténtico!'] },
+  lanzador:   { hp: 40,  spd: 100, dmg: 10, range: 300, windup: 0.5, cd: 2.2, h: 0.98, w: 1.0,  score: 140, behav: 'thrower', lines: ['¡Viva el Pilar!', '¡Toma vidrio!', '¡Que va de botellín!', '¡Esta va por las fiestas!', '¡Al de oro, a por él!'] },
   baturro:    { hp: 70,  spd: 90,  dmg: 11, range: 50, windup: 0.35, cd: 1.4, h: 1.04, w: 1.05, score: 130, lines: ['¡Maño, que te doy!', '¡Ni oro ni leches!', '¡Pues no te digo que no!', '¡Cagüen!'] },
   patinete:   { hp: 35,  spd: 120, dmg: 11, range: 44, windup: 0.3,  cd: 2.0, h: 1.0,  w: 0.95, score: 110, behav: 'dash', chargeSpd: 430, lines: ['¡Apartaaa!', '¡Que voy por el carril!', '¡Me quedan 3% de batería!'] },
   cachas:     { hp: 120, spd: 65,  dmg: 18, range: 56, windup: 0.6,  cd: 1.9, h: 1.22, w: 1.35, score: 200, knock: true, lines: ['¿Tú de oro? Yo de proteína.', '¡Hoy toca pierna!', '¡Mira estos bíceps!'] },
   repartidor: { hp: 3,   spd: 190, dmg: 0,  range: 0,  h: 0.95, w: 0.95, score: 300, behav: 'flee', lines: ['¡Mi pedido!', '¡Que llego tarde!', '¡Eso no es tuyo!'] },
   cierzo:     { hp: 600, spd: 80,  dmg: 20, range: 72, windup: 0.6,  cd: 1.6, h: 1.65, w: 1.6,  score: 2000, behav: 'boss', knock: true, lines: ['¡SOPLOOOO!', '¡Nadie aguanta en pie en Zaragoza!', '¡Fuuuuuuu!', '¡Soy el viento del Moncayo!'] },
 };
-const POOL = ['nino', 'revisor', 'abuela', 'turista', 'baturro', 'patinete', 'cachas'];
+const POOL = process.env.POOL ? process.env.POOL.split(',') : ['nino', 'revisor', 'abuela', 'lanzador', 'turista', 'baturro', 'patinete', 'cachas'];
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = a => a[Math.random() * a.length | 0];
@@ -78,7 +79,7 @@ function alivePlayers() { return [...players.values()].filter(p => p.state !== '
 function poolNow() { return POOL.slice(0, Math.min(POOL.length, 2 + W.stopIdx)); }
 
 function resetWorld() {
-  W = { t: 0, cam: 0, stopIdx: 0, phase: 'travel', lockX: FIRST_STOP, wavesLeft: 0, enemies: [], mounts: [], items: [], events: [],
+  W = { t: 0, cam: 0, stopIdx: 0, phase: 'travel', lockX: FIRST_STOP, wavesLeft: 0, enemies: [], mounts: [], items: [], projs: [], events: [],
     banner: '', bannerSub: '', bannerT: 0, goT: 0, overT: 0, ambushT: 6, minionT: 8 };
   for (const p of players.values()) resetPlayer(p, true);
   setBanner('¡AL TRANVÍA!', 'Próxima parada: ' + stopName(0), 3);
@@ -376,7 +377,7 @@ function updEnemy(e) {
 
   if (e.state === 'walk') {
     const side = dxT > 0 ? -1 : 1;
-    const wantX = t.x + side * range * 0.8, wantY = t.y + (m ? 0 : e.slot);
+    const wantX = t.x + side * (d.behav === 'thrower' && !m ? 250 : range * 0.8), wantY = t.y + (m ? 0 : e.slot * (d.behav === 'thrower' ? 0.3 : 1));
     const mx = wantX - e.x, my = wantY - e.y;
     if (Math.abs(mx) > 6) e.x += Math.sign(mx) * Math.min(Math.abs(mx), spd * DT);
     if (Math.abs(my) > 3) e.y += Math.sign(my) * Math.min(Math.abs(my), spd * 0.6 * DT);
@@ -387,6 +388,8 @@ function updEnemy(e) {
     }
     if (d.behav === 'boss' && e.atkCd <= 0 && e.entered && (Math.abs(dxT) > 230 || Math.random() < 0.012)) {
       e.state = 'blow'; e.stateT = 0; say(e, pick(d.lines), 2); ev({ e: 'wind' });
+    } else if (d.behav === 'thrower' && !m) {
+      if (e.atkCd <= 0 && e.entered && Math.abs(dxT) > 110 && Math.abs(dxT) < 420 && Math.abs(dyT) < 22) { e.state = 'windup'; e.stateT = 0; }
     } else if (e.atkCd <= 0 && e.entered && Math.abs(dxT) <= range + 10 && Math.abs(dyT) < 18 && t.z < 50) {
       e.state = 'windup'; e.stateT = 0;
     }
@@ -397,7 +400,14 @@ function updEnemy(e) {
       if (m) { m.state = 'spray'; m.stateT = 0; ev({ e: 'foam', x: R(e.x), y: R(e.y), f: e.facing }); }
     }
   } else if (e.state === 'attack') {
-    if (m) {
+    if (d.behav === 'thrower' && !m) {
+      if (e.stateT < DT * 1.5) {
+        const dist = Math.max(60, Math.abs(dxT)), vx = 380, tt = dist / vx, z0 = 62;
+        W.projs.push({ id: nextId++, x: e.x + e.facing * 18, y: e.y, z: z0, vx: e.facing * vx, vy: (t.y - e.y) / tt, vz: (40 - z0) / tt + 0.5 * 900 * tt, dmg: d.dmg });
+        ev({ e: 'throw', x: R(e.x), y: R(e.y) });
+      }
+      if (e.stateT > 0.35) endAttack(e, d);
+    } else if (m) {
       if (e.stateT < DT * 1.5) hitPlayers(e, 10, 180, 34, 10, true);
       if (e.stateT > 0.5) endAttack(e, d);
     } else if (d.behav === 'charge' || d.behav === 'dash') {
@@ -448,6 +458,27 @@ function updMount(m) {
   m.px = m.x; m.py = m.y;
 }
 
+// ---------------------------------------------------------------- botellas lanzadas
+function updProj(b) {
+  b.x += b.vx * DT; b.y += b.vy * DT; b.z += b.vz * DT; b.vz -= 900 * DT;
+  for (const p of players.values()) {
+    if (p.state === 'dead') continue;
+    if (Math.abs(p.x - b.x) < 20 && Math.abs(p.y - b.y) < 18 && b.z > p.z && b.z < p.z + 85) {
+      // un golpe en el momento justo la devuelve
+      if (p.state === 'attack' && p.stateT < 0.2 && (b.x - p.x) * p.facing > -5 && b.vx * p.facing < 0) {
+        b.vx = p.facing * 480; b.vz = 160; b.reflected = true; ev({ e: 'deflect', x: R(b.x), y: R(b.y), z: R(b.z) }); say(p, '¡Devuelta, mortal!', 1.5); return;
+      }
+      if (!b.reflected) { hurtPlayer(p, b.dmg, false, Math.sign(b.vx)); b.remove = true; ev({ e: 'shatter', x: R(b.x), y: R(b.y), z: R(b.z) }); return; }
+    }
+  }
+  if (b.reflected) for (const e of W.enemies) {
+    if (e.dead || e.state === 'down') continue;
+    if (Math.abs(e.x - b.x) < 24 && Math.abs(e.y - b.y) < 20 && b.z < 90) { hitEnemy(e, 25, true, Math.sign(b.vx), null); b.remove = true; ev({ e: 'shatter', x: R(b.x), y: R(b.y), z: R(b.z) }); return; }
+  }
+  if (b.z <= 0) { b.remove = true; ev({ e: 'shatter', x: R(b.x), y: R(b.y), z: 0 }); }
+  if (b.x < W.cam - 100 || b.x > W.cam + VIEW_W + 100) b.remove = true;
+}
+
 // ---------------------------------------------------------------- bucle
 function tick() {
   W.t += DT; W.bannerT -= DT; W.goT -= DT;
@@ -456,6 +487,8 @@ function tick() {
   for (const e of W.enemies) updEnemy(e);
   for (const m of W.mounts) updMount(m);
   for (const it of W.items) { it.t += DT; if (it.t > 25 || it.x < W.cam - 60) it.taken = true; }
+  for (const b of W.projs) updProj(b);
+  W.projs = W.projs.filter(b => !b.remove);
   W.enemies = W.enemies.filter(e => !e.remove);
   W.mounts = W.mounts.filter(m => !m.remove);
   W.items = W.items.filter(i => !i.taken);
@@ -509,6 +542,7 @@ function snapshot() {
       m: e.mount ? 1 : 0, sy: e.sayT > 0 ? e.say : '', d: e.dead ? 1 : 0, fl: e.flash > 0 ? 1 : 0 })),
     M: W.mounts.map(m => ({ i: m.id, x: R(m.x), y: R(m.y), z: R(m.z || 0), f: m.facing, s: m.state, mv: m.mv ? 1 : 0, rk: m.rider ? m.rider.k : '', ri: m.rider ? m.rider.id : 0 })),
     I: W.items.map(i => ({ i: i.id, ty: i.ty, x: R(i.x), y: R(i.y) })),
+    B: W.projs.map(b => ({ i: b.id, x: R(b.x), y: R(b.y), z: R(b.z), r: b.reflected ? 1 : 0 })),
     ev: W.events,
   });
 }

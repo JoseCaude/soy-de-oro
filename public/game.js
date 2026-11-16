@@ -177,6 +177,7 @@ const sfx = {
   wind: () => noise(1.8, 0.14, 450),
   slam: () => { noise(0.3, 0.4, 300); tone(60, 0.3, 'sine', 0.2, -30); },
   ko: () => tone(400, 0.6, 'square', 0.06, -350),
+  glass: () => { noise(0.15, 0.2, 6000); tone(1900, 0.08, 'triangle', 0.05, 400); tone(2600, 0.06, 'triangle', 0.04, 0, 0.04); },
 };
 
 // ------------------------------------------------------------------ partículas y eventos
@@ -204,6 +205,11 @@ function handleEvents(evs) {
       sfx.gold(); shake = .3; flashScr = .35; break;
     case 'pick': sfx.pick(); addText(e.x, e.y, 40, e.ty === 'gold' ? '+ORO' : '+30 VIDA', e.ty === 'gold' ? '#ffd54f' : '#9cff57', 20); break;
     case 'jump': sfx.jump(); break;
+    case 'throw': sfx.swing(); break;
+    case 'deflect': sfx.hit(false); addText(e.x, e.y, e.z + 20, '¡DEVUELTA!', '#ffd54f', 22); break;
+    case 'shatter':
+      for (let i = 0; i < 14; i++) { const a = rnd(0, Math.PI * 2), sp = rnd(60, 200); parts.push({ t: 'dot', x: e.x, y: e.y, z: Math.max(2, e.z), vx: Math.cos(a) * sp, vy: rnd(-30, 30), vz: rnd(60, 220), life: rnd(.3, .6), max: .6, col: pick(['#2e7d32', '#81c784', '#e8f5e9']), sz: rnd(2, 4) }); }
+      sfx.glass(); break;
     case 'swing': sfx.swing(); break;
     case 'door': sfx.door(); break;
     case 'wind': sfx.wind(); windFx = 1.9; break;
@@ -255,7 +261,7 @@ function renderState(now) {
     return lb.map(o => { const p = ma.get(o.i); if (!p) return o; return { ...o, x: p.x + (o.x - p.x) * k, y: p.y + (o.y - p.y) * k, z: p.z + (o.z - p.z) * k }; });
   };
   const S = b.s;
-  return { ...S, cam: a.s.cam + (S.cam - a.s.cam) * k, P: L(a.s.P, S.P), E: L(a.s.E, S.E), M: L(a.s.M, S.M) };
+  return { ...S, cam: a.s.cam + (S.cam - a.s.cam) * k, P: L(a.s.P, S.P), E: L(a.s.E, S.E), M: L(a.s.M, S.M), B: L(a.s.B || [], S.B || []) };
 }
 
 // ------------------------------------------------------------------ primitivas de dibujo
@@ -280,6 +286,7 @@ const VIS = {
   turista:    { h: 1.08, w: .95, skin: '#ffcdb2', shirt: '#26c6da', flowers: 1, pants: '#f5deb3', hair: '#ffe082', hat: 'sun', hatC: '#fff3c4', acc: 'selfie' },
   patinete:   { h: 1,   w: .95, skin: '#c68642', shirt: '#263238', pants: '#546e7a', hair: '#111111', hat: 'helmet', hatC: '#76ff03', acc: 'scooter' },
   cachas:     { h: 1.22, w: 1.35, skin: '#d79b6b', shirt: '#e53935', tank: 1, pants: '#263238', hair: null, bigArms: 1 },
+  lanzador:   { h: .98, w: 1, skin: '#e3a87f', shirt: '#1565c0', stripes: 1, pants: '#eeeeee', hair: '#5d4037', scarf: '#d32f2f', acc: 'bottle' },
   baturro:    { h: 1.04, w: 1.05, skin: '#e8b88a', shirt: '#fafafa', vest: '#212121', sash: '#c62828', pants: '#212121', hair: '#3e2723', hat: 'cachirulo' },
   repartidor: { h: .95, w: .95, skin: '#a1665e', shirt: '#00bfa5', pants: '#37474f', hair: '#1b1b1b', hat: 'cap', hatC: '#00bfa5', acc: 'box' },
   cierzo:     { h: 1.65, w: 1.6, skin: '#b3e5fc', shirt: '#e1f5fe', pants: '#81d4fa', hair: null, cloud: 1, boss: 1 },
@@ -308,7 +315,7 @@ function drawPerson(v, x, y, z, f, s, st, o = {}) {
       else if (o.charge) { armF = -1.3; armB = -1.2; rot = .25; legF = Math.sin(T * 20) * .6; legB = -legF; }
       else { armF = -1.55; armB = .5; rot = .08; }
       break;
-    case 'windup': armF = .9; armB = .6; rot = -.12; break;
+    case 'windup': if (v.acc === 'bottle') { armF = 2.5; armB = -.6; rot = -.2; } else { armF = .9; armB = .6; rot = -.12; } break;
     case 'jump': legF = -.7; legB = .5; armF = -2.2; armB = -2.6; if (o.air) { legF = -1.45; legB = .3; armF = -.6; rot = -.15; } break;
     case 'hurt': rot = -.28; armF = -2.4; armB = -2; break;
     case 'getup': hip = -24; legF = -1.1; legB = .9; armF = -.6; rot = .3; break;
@@ -346,6 +353,8 @@ function drawPerson(v, x, y, z, f, s, st, o = {}) {
   if (v.vest) { ctx.fillStyle = C.vest; ctx.fillRect(-tw, shY - 1, tw * .9, hy - shY + 3); ctx.fillRect(tw * .35, shY - 1, tw * .65, hy - shY + 3); }
   if (v.sash) { rr(-tw - 1, hy - 7 * S, tw * 2 + 2, 8 * S, 2, C.sash); }
   if (v.skirt) { ctx.beginPath(); ctx.moveTo(-tw, hy - 4 * S); ctx.lineTo(tw, hy - 4 * S); ctx.lineTo(tw + 5 * S, hy + 16 * S); ctx.lineTo(-tw - 5 * S, hy + 16 * S); ctx.closePath(); ctx.fillStyle = C.pants; ctx.fill(); ctx.stroke(); }
+  if (v.stripes && !o.flash) { ctx.fillStyle = o.gold ? '#fff8e1' : 'rgba(255,255,255,.85)'; for (let yy = shY + 2 * S; yy < hy; yy += 7 * S) ctx.fillRect(-tw + 1, yy, tw * 2 - 2, 2.5 * S); }
+  if (v.scarf) { ctx.beginPath(); ctx.moveTo(-tw * .8, shY - 2 * S); ctx.lineTo(tw * .9, shY - 2 * S); ctx.lineTo(tw * .2, shY + 10 * S); ctx.closePath(); ctx.fillStyle = o.gold ? C.sash : v.scarf; ctx.fill(); ctx.stroke(); }
   if (v.badge) circ(tw * .5, shY + 8 * S, 3 * S, '#ffd54f', false);
   if (v.chain) { ctx.strokeStyle = '#ffc400'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(2 * S, shY - 2 * S, 8 * S, .3, Math.PI - .3); ctx.stroke(); circ(2 * S, shY + 7 * S, 2.5, '#ffc400', false); ctx.strokeStyle = '#1c140c'; ctx.lineWidth = 2; }
 
@@ -392,6 +401,7 @@ function drawPerson(v, x, y, z, f, s, st, o = {}) {
   limb(0, shY + 4 * S, 28 * S, armW, armF, armCol, () => {
     circ(0, 0, armW * .55, C.skin);
     if (v.acc === 'beer') { rr(-2, 0, 4, 8, 1, C.bottle); rr(-4.5, 6, 9, 17, 3, C.bottle); ctx.fillStyle = o.gold ? '#fff8e1' : '#fff3d6'; ctx.fillRect(-4, 11, 8, 5); }
+    else if (v.acc === 'bottle') { if (s !== 'attack') { rr(-2, -2, 4, 8, 1, '#6d3b12'); rr(-4.5, 5, 9, 16, 3, '#6d3b12'); } }
     else if (v.acc === 'machine') rr(-5, -1, 10, 9, 2, '#90a4ae');
     else if (v.acc === 'selfie') {
       const L = (s === 'attack' || s === 'windup') ? 74 : 16;
@@ -478,6 +488,15 @@ function drawItem(it, cam) {
   ctx.fillStyle = gold ? '#fff8e1' : '#fff3d6'; ctx.fillRect(-5, -16, 10, 7);
   ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fillRect(-4, -20, 2, 16);
   if (gold && Math.floor(T * 4 + it.i) % 2) star(7, -30, 5, '#fffde7');
+  ctx.restore();
+}
+
+function drawProj(b, cam) {
+  const x = b.x - cam, y = FLOOR + b.y;
+  shadow(x, y, 7);
+  ctx.save(); ctx.translate(x, y - b.z); ctx.rotate(T * 16 + b.i); ctx.lineWidth = 1.5; ctx.strokeStyle = '#1c140c';
+  const col = b.r ? '#ffca28' : '#2e7d32';
+  rr(-4, -6, 8, 14, 3, col); rr(-1.8, -13, 3.6, 8, 1, col);
   ctx.restore();
 }
 
@@ -760,6 +779,7 @@ function draw(S, dt) {
 
   const list = [], riders = new Set();
   for (const it of S.I) list.push({ y: it.y - .5, f: () => drawItem(it, cam) });
+  for (const b of S.B || []) list.push({ y: b.y + .2, f: () => drawProj(b, cam) });
   for (const m of S.M) {
     const rider = m.rk === 'p' ? S.P.find(p => p.i === m.ri) : m.rk === 'e' ? S.E.find(e => e.i === m.ri) : null;
     if (rider) riders.add(m.rk + rider.i);

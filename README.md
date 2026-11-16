@@ -21,6 +21,8 @@ Abre `http://localhost:3000`. Quien esté en tu misma red puede entrar con la IP
 - Botellón: camina hacia él para montarlo; salta para bajarte
 - M: silenciar
 
+Ojo con el peñista: lanza botellas desde lejos. Si le das un golpe justo cuando te llega, se la devuelves.
+
 ## Despliegue
 
 `render.yaml` define un servicio web Node para Render (plan gratuito).
